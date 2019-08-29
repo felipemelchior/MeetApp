@@ -1,8 +1,33 @@
 import * as Yup from 'yup';
 import { isBefore, parseISO } from 'date-fns';
+import User from '../models/user';
 import Meetup from '../models/meetups';
+import Files from '../models/files';
 
 class MeetupController {
+  async index(req, res) {
+    const { page } = req.query;
+    const meetups = await Meetup.findAll({
+      where: { user_id: req.userId },
+      order: ['date'],
+      attributes: ['id', 'name', 'description', 'place', 'date'],
+      limit: 20,
+      offset: 20 * (page - 1),
+      include: [
+        {
+          model: User,
+          attributes: ['id', 'name'],
+        },
+        {
+          model: Files,
+          attibutes: ['id', 'path', 'url'],
+        },
+      ],
+    });
+
+    return res.json(meetups);
+  }
+
   async store(req, res) {
     const schema = Yup.object().shape({
       name: Yup.string().required(),
@@ -28,6 +53,79 @@ class MeetupController {
     });
 
     return res.json(meetup);
+  }
+
+  async update(req, res) {
+    const schema = Yup.object().shape({
+      name: Yup.string(),
+      description: Yup.string(),
+      place: Yup.string(),
+      date: Yup.date(),
+      file_id: Yup.number(),
+    });
+
+    if (!(await schema.isValid(req.body))) {
+      return res.status(400).json({ error: 'Validation fails' });
+    }
+
+    const { id } = req.params;
+    const meetup = await Meetup.findOne({ where: { id, user_id: req.userId } });
+
+    if (!meetup) {
+      return res.status(401).json({
+        error: 'Meetup not found/Meetup does not belongs to this user',
+      });
+    }
+
+    if (req.body.date) {
+      if (isBefore(parseISO(req.body.date), new Date())) {
+        return res.status(401).json({ error: 'New date must be in future' });
+      }
+    }
+
+    if (meetup.past) {
+      return res.status(401).json({ error: "Can't update past meetups" });
+    }
+
+    if (req.body.file_id) {
+      const fileExists = await Files.findByPk(req.body.file_id);
+
+      if (!fileExists) {
+        return res.status(401).json({ error: 'File not found' });
+      }
+    }
+
+    const newMeetup = await meetup.update(req.body);
+
+    return res.json(newMeetup);
+  }
+
+  async delete(req, res) {
+    const schema = Yup.object().shape({
+      id: Yup.number().required(),
+    });
+
+    if (!(await schema.isValid(req.body))) {
+      return res.status(400).json({ error: 'Validation fails' });
+    }
+
+    const { id } = req.body;
+
+    const meetup = await Meetup.findOne({ where: { id, user_id: req.userId } });
+
+    if (!meetup) {
+      return res.status(401).json({
+        error: 'Meetup not found/Meetup does not belongs to this user',
+      });
+    }
+
+    if (meetup.past) {
+      return res.status(401).json({ error: "You can't delete past meetups" });
+    }
+
+    await meetup.destroy();
+
+    return res.status(200).json();
   }
 }
 
