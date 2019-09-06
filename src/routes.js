@@ -6,6 +6,7 @@ import SessionController from './app/controllers/SessionController';
 import FilesController from './app/controllers/FilesController';
 import MeetupController from './app/controllers/MeetupController';
 import SubscribeController from './app/controllers/SubscribeController';
+import OrganizerController from './app/controllers/OrganizerController';
 
 import authMiddleware from './app/middlewares/auth';
 
@@ -23,6 +24,8 @@ routes.use(authMiddleware);
 routes.get('/files', FilesController.index);
 
 routes.put('/users', UserController.update);
+
+routes.get('/organizer', OrganizerController.index);
 
 routes.get('/meetups', MeetupController.index);
 routes.post('/meetups', MeetupController.store);

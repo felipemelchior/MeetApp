@@ -1,4 +1,5 @@
 import * as Yup from 'yup';
+import { Op } from 'sequelize';
 import { isBefore, parseISO } from 'date-fns';
 import User from '../models/user';
 import Meetup from '../models/meetups';
@@ -8,22 +9,20 @@ class MeetupController {
   async index(req, res) {
     const { page } = req.query;
     const meetups = await Meetup.findAll({
-      where: { user_id: req.userId },
-      order: ['date'],
+      where: {
+        date: {
+          [Op.gt]: new Date(),
+        },
+      },
       attributes: ['id', 'name', 'description', 'place', 'date'],
       limit: 20,
       offset: 20 * (page - 1),
-      include: [
-        {
-          model: User,
-          attributes: ['id', 'name'],
-        },
-        {
-          model: Files,
-          attibutes: ['id', 'path', 'url'],
-        },
-      ],
+      order: ['date'],
     });
+
+    if (meetups === []) {
+      return res.status(401).json({ error: 'No one meetup found' });
+    }
 
     return res.json(meetups);
   }
