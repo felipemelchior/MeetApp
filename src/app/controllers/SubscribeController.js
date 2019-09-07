@@ -1,5 +1,7 @@
 import * as Yup from 'yup';
 import { Op } from 'sequelize';
+import { format } from 'date-fns';
+import pt from 'date-fns/locale/pt';
 import Subscribe from '../models/subscribe';
 import Meetups from '../models/meetups';
 import User from '../models/user';
@@ -42,6 +44,16 @@ class SubscribeController {
 
     const { meetup_id } = req.body;
 
+    const subscribeExists = await Subscribe.findOne({
+      where: { user_id: req.userId, meetup_id },
+    });
+
+    if (subscribeExists) {
+      return res
+        .status(401)
+        .json({ error: 'You already subscribed in this meetup' });
+    }
+
     const meetupExists = await Meetups.findByPk(meetup_id, {
       include: [
         {
@@ -59,12 +71,22 @@ class SubscribeController {
       return res.status(401).json({ error: "You can't subscribe own meetups" });
     }
 
+    const user = await User.findByPk(req.userId);
+    console.log(user.name);
+
     await Subscribe.create({ user_id: req.userId, meetup_id });
 
     await Mail.sendMail({
       to: `${meetupExists.User.name} <${meetupExists.User.email}>`,
       subject: 'Nova inscrição no meetup',
-      text: 'aaaaa',
+      template: 'subscribed',
+      context: {
+        organizer: meetupExists.User.name,
+        user: user.name,
+        date: format(meetupExists.date, "'dia' dd 'de' MMMM', às' H:mm'h'", {
+          locale: pt,
+        }),
+      },
     });
 
     return res.json();
