@@ -16,11 +16,12 @@ class OrganizerController {
       include: [
         {
           model: User,
+          where: { id: req.userId },
           attributes: ['id', 'name'],
         },
         {
           model: Files,
-          attibutes: ['id', 'path', 'url'],
+          attributes: ['id', 'path', 'url'],
         },
       ],
     });
